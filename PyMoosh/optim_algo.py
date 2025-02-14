@@ -82,6 +82,86 @@ def differential_evolution(f_cout, budget, X_min, X_max, f1=0.9, f2=0.8, cr=0.5,
 
     return [best, convergence]
 
+def variant_ini_differential_evolution(f_cout, budget, X_min, X_max, f1=0.9, f2=0.8, cr=0.5, population=30):
+    """This is Differentiel Evolution in its current to best version.
+
+    Args:
+        f_cout (function): cost function taking a numpy vector as argument
+        budget (integer): number of times the cost function can be computed
+        X_min (numpy array): lower boundaries of the optimization domain,
+                             a vector with the same size as the argument of
+                             the cost function.
+        X_max (numpy array): upper boundaries of the optimization domain.
+    KwArgs:
+        cr (float): value for crossover operation
+        f1 (float): value for f1 mutation operation
+        f2 (float): value for f2 mutation operation
+        population (integer): size of the population (30 by default)
+
+    Returns:
+        best (numpy array): best solution found
+        convergence (array): lowest value of the cost function for each
+                             generation
+    """
+
+    # Hyperparameters
+    # Cross-over : cr,
+    # Mutation : f1 and f2
+    n=X_min.size
+
+    # Population initialization
+    omega=X_min+np.random.rand(population,n)*(X_max-X_min)
+    cost=np.zeros(population)
+    for k in range(0,population):
+        cost[k]=f_cout(omega[k])
+
+    # Who's the best ?
+    who=np.argmin(cost)
+    best=omega[who]
+
+    # initialization of the rest
+    evaluation=population
+    convergence=[]
+    generation=0
+    convergence.append(cost[who])
+
+    # Differential Evolution loop.
+    while evaluation<budget-population:
+        for k in range(0,population):
+            
+            # Choosing which parameters will be taken from the new individual
+            crossover=(np.random.random(n)<cr)
+            
+            # Choosing 2 random individuals
+            pop_1 = omega[np.random.randint(population)]
+            pop_2 = omega[np.random.randint(population)]
+            rand_step = pop_1 - pop_2
+            best_step = best-omega[k]
+
+            new_param = omega[k] + f1*rand_step + f2*best_step
+
+            X = new_param*(1-crossover) + omega[k]*crossover
+
+
+            if np.prod((X >= X_min)*(X <= X_max)):
+                # If the individual is in the parameter domain, proceed
+                tmp = f_cout(X)
+                evaluation = evaluation+1
+                if (tmp < cost[k]) :
+                    # If the new individual is better than the parent,
+                    # we keep it
+                    cost[k] = tmp
+                    omega[k] = X
+
+        generation = generation+1
+        who = np.argmin(cost)
+        best = omega[who]
+        convergence.append(cost[who])
+
+    convergence = convergence[0:generation+1]
+
+    return [best, convergence]
+
 
 def bfgs(f_cout, npas, start, *args):
     """This is a wrapper for the L-BFGS-B method encoded in scipy
@@ -178,6 +258,101 @@ def QODE(f_cout, budget, X_min, X_max, population=30, progression=False):
         cost[k+1]=f_cout(omega[k+1])
     # The specifity of QODE (the initialisation) is done, the rest is usual DE
 
+    # Who's the best ?
+    who=np.argmin(cost)
+    best=omega[who]
+
+    # initialization of the rest
+    evaluation=population
+    convergence=[]
+    generation=0
+    convergence.append(cost[who])
+
+    # Differential Evolution loop.
+    while evaluation<budget-population:
+        for k in range(0,population):
+            
+            # Choosing which parameters will be taken from the new individual
+            crossover=(np.random.random(n)<cr)
+            
+            # Choosing 2 random individuals
+            pop_1 = omega[np.random.randint(population)]
+            pop_2 = omega[np.random.randint(population)]
+            rand_step = pop_1 - pop_2
+            best_step = best-omega[k]
+
+            new_param = omega[k] + f1*rand_step + f2*best_step
+
+            X = new_param*(1-crossover) + omega[k]*crossover
+
+
+            if np.prod((X >= X_min)*(X <= X_max)):
+                # If the individual is in the parameter domain, proceed
+                tmp = f_cout(X)
+                evaluation = evaluation+1
+                if progression and ((evaluation*progression) % budget == 0) :
+                    print(f'Progression : {np.round(evaluation*100/(budget - population), 2)}%. Current cost : {np.round(f_cout(best),6)}')
+                if (tmp < cost[k]) :
+                    # If the new individual is better than the parent,
+                    # we keep it
+                    cost[k] = tmp
+                    omega[k] = X
+
+        generation = generation+1
+        who = np.argmin(cost)
+        best = omega[who]
+        convergence.append(cost[who])
+        if (evaluation % 50 == 0) and progression:
+            print(f'Progression : {np.round(evaluation*100/(budget - population), 2)}%. Current cost : {np.round(f_cout(best),6)}')
+
+    convergence = convergence[0:generation+1]
+
+    return [best, convergence]
+
+def variant_ini_QODE(f_cout, budget, X_min, X_max, population=30, progression=False):
+    """This is Quasi Opposite Differential Evolution.
+
+    Args:
+        f_cout (function): cost function taking a numpy vector as argument
+        budget (integer): number of times the cost function can be computed
+        X_min (numpy array): lower boundaries of the optimization domain,
+                             a vector with the same size as the argument of
+                             the cost function.
+        X_max (numpy array): upper boundaries of the optimization domain.
+        population (integer): size of the population (30 by default), should be even!
+
+    Returns:
+        best (numpy array): best solution found
+        convergence (array): lowest value of the cost function for each
+                             generation
+    """
+
+    # Hyperparameters
+    # Cross-over
+
+    cr=0.5;
+    # Mutation
+    f1=0.9;
+    f2=0.8;
+
+    n=X_min.size
+
+    # Population initialization
+    nb_in=population//2
+    if (population%2!=0):
+        nb_in+=1
+    omega_in=X_min+np.random.rand(nb_in,n)*(X_max-X_min)
+    mid_omega=(X_min+X_max)/2
+    rand_sym=np.random.rand(population//2,n)
+    omega_sym=omega_in[0:population//2]+2*(mid_omega-omega_in)*rand_sym
+    omega=np.concatenate((omega_in,omega_sym), axis=0)
+    # The specifity of QODE (the initialisation) is done, the rest is usual DE
+
+    # initialisation of the cost array and first determination
+    cost=np.zeros(population)
+    for k in range(population):
+        cost[k]=f_cout(omega[k])
+    
     # Who's the best ?
     who=np.argmin(cost)
     best=omega[who]
