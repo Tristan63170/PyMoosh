@@ -217,7 +217,7 @@ def bfgs(f_cout, npas, start, *args):
     return best, f_cout(best)
 
 
-def QODE(f_cout, budget, X_min, X_max, population=30, progression=False):
+def QODE(f_cout, budget, X_min, X_max, f1=0.9, f2=0.8, cr=0.5, population=30, progression=False):
     """This is Quasi Opposite Differential Evolution.
 
     Args:
@@ -234,14 +234,6 @@ def QODE(f_cout, budget, X_min, X_max, population=30, progression=False):
         convergence (array): lowest value of the cost function for each
                              generation
     """
-
-    # Hyperparameters
-    # Cross-over
-
-    cr=0.5;
-    # Mutation
-    f1=0.9;
-    f2=0.8;
 
     n=X_min.size
 
@@ -309,7 +301,7 @@ def QODE(f_cout, budget, X_min, X_max, population=30, progression=False):
 
     return [best, convergence]
 
-def variant_ini_QODE(f_cout, budget, X_min, X_max, population=30, progression=False):
+def variant_ini_QODE(f_cout, budget, X_min, X_max, f1=0.9, f2=0.8, cr=0.5, population=30, progression=False):
     """This is Quasi Opposite Differential Evolution.
 
     Args:
@@ -326,15 +318,7 @@ def variant_ini_QODE(f_cout, budget, X_min, X_max, population=30, progression=Fa
         convergence (array): lowest value of the cost function for each
                              generation
     """
-
-    # Hyperparameters
-    # Cross-over
-
-    cr=0.5;
-    # Mutation
-    f1=0.9;
-    f2=0.8;
-
+    
     n=X_min.size
 
     # Population initialization
@@ -405,7 +389,7 @@ def variant_ini_QODE(f_cout, budget, X_min, X_max, population=30, progression=Fa
     return [best, convergence]
 
 
-def QNDE(f_cout, budget, X_min, X_max, budget_bfgs=None, population=30, progression=False):
+def QNDE(f_cout, budget, X_min, X_max, budget_bfgs=None, f1=0.9, f2=0.8, cr=0.5,population=30, progression=False):
     """This is Quasi Newton Differential Evolution.
 
     Args:
@@ -425,7 +409,7 @@ def QNDE(f_cout, budget, X_min, X_max, budget_bfgs=None, population=30, progress
     if budget_bfgs is None:
         budget_bfgs = int(0.1*budget)
     cut_budget = budget - budget_bfgs
-    first_best, first_convergence = QODE(f_cout, cut_budget, X_min, X_max, population, progression)
+    first_best, first_convergence = QODE(f_cout, cut_budget, X_min, X_max, f1=f1, f2=f2, cr=cr, population=population, progression=progression)
     print('Switching to bfgs gradient descent...') if progression else None
     best, last_convergence = bfgs(f_cout, budget_bfgs, first_best, X_min, X_max)
     convergence = np.append(np.asarray(first_convergence), last_convergence)
