@@ -301,6 +301,280 @@ def QODE(f_cout, budget, X_min, X_max, f1=0.9, f2=0.8, cr=0.5, population=30, pr
 
     return [best, convergence]
 
+def QODE_V2(f_cout, budget, X_min, X_max, f1=0.9, f2=0.8, cr=0.5, population=30, progression=False):
+    """This is Quasi Opposite Differential Evolution with the symmetrised part of the initial population constrained to the opposite half of the parameters domains.
+
+    Args:
+        f_cout (function): cost function taking a numpy vector as argument
+        budget (integer): number of times the cost function can be computed
+        X_min (numpy array): lower boundaries of the optimization domain,
+                             a vector with the same size as the argument of
+                             the cost function.
+        X_max (numpy array): upper boundaries of the optimization domain.
+        population (integer): size of the population (30 by default), should be even!
+
+    Returns:
+        best (numpy array): best solution found
+        convergence (array): lowest value of the cost function for each
+                             generation
+    """
+
+    n=X_min.size
+
+    # Population initialization
+    omega=np.zeros((population,n))
+    cost=np.zeros(population)
+    #center of optimization domain
+    c = (X_max + X_min)/2
+    for k in range(0,population, 2):
+        omega[k]=X_min+(X_max-X_min)*np.random.random(n)
+        cost[k]=f_cout(omega[k])
+        delta = 2*(c - omega[k])*np.random.uniform(0.5,1,n)
+        omega[k+1] = omega[k] + delta
+        cost[k+1]=f_cout(omega[k+1])
+    # The specifity of QODE (the initialisation) is done, the rest is usual DE
+
+    # Who's the best ?
+    who=np.argmin(cost)
+    best=omega[who]
+
+    # initialization of the rest
+    evaluation=population
+    convergence=[]
+    generation=0
+    convergence.append(cost[who])
+
+    # Differential Evolution loop.
+    while evaluation<budget-population:
+        for k in range(0,population):
+            
+            # Choosing which parameters will be taken from the new individual
+            crossover=(np.random.random(n)<cr)
+            
+            # Choosing 2 random individuals
+            pop_1 = omega[np.random.randint(population)]
+            pop_2 = omega[np.random.randint(population)]
+            rand_step = pop_1 - pop_2
+            best_step = best-omega[k]
+
+            new_param = omega[k] + f1*rand_step + f2*best_step
+
+            X = new_param*(1-crossover) + omega[k]*crossover
+
+
+            if np.prod((X >= X_min)*(X <= X_max)):
+                # If the individual is in the parameter domain, proceed
+                tmp = f_cout(X)
+                evaluation = evaluation+1
+                if progression and ((evaluation*progression) % budget == 0) :
+                    print(f'Progression : {np.round(evaluation*100/(budget - population), 2)}%. Current cost : {np.round(f_cout(best),6)}')
+                if (tmp < cost[k]) :
+                    # If the new individual is better than the parent,
+                    # we keep it
+                    cost[k] = tmp
+                    omega[k] = X
+
+        generation = generation+1
+        who = np.argmin(cost)
+        best = omega[who]
+        convergence.append(cost[who])
+        if (evaluation % 50 == 0) and progression:
+            print(f'Progression : {np.round(evaluation*100/(budget - population), 2)}%. Current cost : {np.round(f_cout(best),6)}')
+
+    convergence = convergence[0:generation+1]
+
+    return [best, convergence]
+
+def QODE_V3(f_cout, budget, X_min, X_max, f1=0.9, f2=0.8, cr=0.5, population=30, progression=False):
+    """This is Quasi Opposite Differential Evolution with the symmetrised part of the initial population constrained to the opposite half of the parameters domains and the QO jump step embodied in the mutation process.
+
+    Args:
+        f_cout (function): cost function taking a numpy vector as argument
+        budget (integer): number of times the cost function can be computed
+        X_min (numpy array): lower boundaries of the optimization domain,
+                             a vector with the same size as the argument of
+                             the cost function.
+        X_max (numpy array): upper boundaries of the optimization domain.
+        population (integer): size of the population (30 by default), should be even!
+
+    Returns:
+        best (numpy array): best solution found
+        convergence (array): lowest value of the cost function for each
+                             generation
+    """
+
+    n=X_min.size
+
+    # Population initialization
+    omega=np.zeros((population,n))
+    cost=np.zeros(population)
+    # center of optimization domain
+    c = (X_max + X_min)/2
+    for k in range(0,population, 2):
+        omega[k]=X_min+(X_max-X_min)*np.random.random(n)
+        cost[k]=f_cout(omega[k])
+        delta = 2*(c - omega[k])*np.random.uniform(0.5,1,n)
+        omega[k+1] = omega[k] + delta
+        cost[k+1]=f_cout(omega[k+1])
+    # The specifity of QODE (the initialisation) is done, the rest is usual DE
+
+    # Who's the best ?
+    who=np.argmin(cost)
+    best=omega[who]
+
+    # initialization of the rest
+    evaluation=population
+    convergence=[]
+    generation=0
+    convergence.append(cost[who])
+
+    # Differential Evolution loop with QO jumping.
+    while evaluation<budget-population:
+        for k in range(0,population):
+
+            # Choosing which parameters will be taken from the new individual
+            crossover=(np.random.random(n)<cr)
+
+            # Choosing 2 random individuals
+            pop_1 = omega[np.random.randint(population)]
+            pop_2 = omega[np.random.randint(population)]
+            rand_step = pop_1 - pop_2
+            best_step = best-omega[k]
+
+            new_param = omega[k] + f1*rand_step + f2*best_step
+
+            X = new_param*(1-crossover) + omega[k]*crossover
+
+            # QO jumping with a 50% probability
+            if np.random.rand() < 0.5:
+                omega_but_k = np.delete(omega, k, axis=0)
+                cur_min = np.min([np.min(omega_but_k, axis=0), X], axis=0)
+                cur_max = np.max([np.max(omega_but_k, axis=0), X], axis=0)
+                cur_center = (cur_min + cur_max) / 2
+                jump = 2 * (cur_center - X) * np.random.uniform(0.5, 1, n)
+                X = X + jump
+            if np.prod((X >= X_min)*(X <= X_max)):
+                # If the individual is in the parameter domain, proceed
+                tmp = f_cout(X)
+                evaluation = evaluation+1
+                if progression and ((evaluation*progression) % budget == 0) :
+                    print(f'Progression : {np.round(evaluation*100/(budget - population), 2)}%. Current cost : {np.round(f_cout(best),6)}')
+                if (tmp < cost[k]) :
+                    # If the new individual is better than the parent,
+                    # we keep it
+                    cost[k] = tmp
+                    omega[k] = X
+
+        generation = generation+1
+        who = np.argmin(cost)
+        best = omega[who]
+        convergence.append(cost[who])
+        if (evaluation % 50 == 0) and progression:
+            print(f'Progression : {np.round(evaluation*100/(budget - population), 2)}%. Current cost : {np.round(f_cout(best),6)}')
+
+    convergence = convergence[0:generation+1]
+
+    return [best, convergence]
+
+def QODE_V4(f_cout, budget, X_min, X_max, f1=0.9, f2=0.8, cr=0.5, population=30, progression=False):
+    """This is Quasi Opposite Differential Evolution with the symmetrised part of the initial population constrained to the opposite half of the parameters domains and the QO jump step after the mutation process.
+
+    Args:
+        f_cout (function): cost function taking a numpy vector as argument
+        budget (integer): number of times the cost function can be computed
+        X_min (numpy array): lower boundaries of the optimization domain,
+                             a vector with the same size as the argument of
+                             the cost function.
+        X_max (numpy array): upper boundaries of the optimization domain.
+        population (integer): size of the population (30 by default), should be even!
+
+    Returns:
+        best (numpy array): best solution found
+        convergence (array): lowest value of the cost function for each
+                             generation
+    """
+
+    n=X_min.size
+
+    # Population initialization
+    omega=np.zeros((population,n))
+    cost=np.zeros(population)
+    # center of optimization domain
+    c = (X_max + X_min)/2
+    for k in range(0,population, 2):
+        omega[k]=X_min+(X_max-X_min)*np.random.random(n)
+        cost[k]=f_cout(omega[k])
+        delta = 2*(c - omega[k])*np.random.uniform(0.5,1,n)
+        omega[k+1] = omega[k] + delta
+        cost[k+1]=f_cout(omega[k+1])
+    # The specifity of QODE (the initialisation) is done, the rest is usual DE
+
+    # Who's the best ?
+    who=np.argmin(cost)
+    best=omega[who]
+
+    # initialization of the rest
+    evaluation=population
+    convergence=[]
+    generation=0
+    convergence.append(cost[who])
+
+    # Differential Evolution loop with QO jumping.
+    while evaluation<budget-population:
+        for k in range(0,population):
+
+            # Choosing which parameters will be taken from the new individual
+            crossover=(np.random.random(n)<cr)
+
+            # Choosing 2 random individuals
+            pop_1 = omega[np.random.randint(population)]
+            pop_2 = omega[np.random.randint(population)]
+            rand_step = pop_1 - pop_2
+            best_step = best-omega[k]
+
+            new_param = omega[k] + f1*rand_step + f2*best_step
+
+            X = new_param*(1-crossover) + omega[k]*crossover
+
+            if np.prod((X >= X_min)*(X <= X_max)):
+                # If the individual is in the parameter domain, proceed
+                tmp = f_cout(X)
+                evaluation = evaluation+1
+                if progression and ((evaluation*progression) % budget == 0) :
+                    print(f'Progression : {np.round(evaluation*100/(budget - population), 2)}%. Current cost : {np.round(f_cout(best),6)}')
+                if (tmp < cost[k]) :
+                    # If the new individual is better than the parent,
+                    # we keep it
+                    cost[k] = tmp
+                    omega[k] = X
+            # QO jumping with a 50% probability
+            if np.random.rand() < 0.5:
+                cur_min = np.min(omega, axis=0)
+                cur_max = np.max(omega, axis=0)
+                cur_center = (cur_min + cur_max) / 2
+                jump = 2 * (cur_center - omega[k]) * np.random.uniform(0.5, 1, n)
+                X_jump = omega[k] + jump
+                tmp = f_cout(X_jump)
+                evaluation = evaluation + 1
+                if progression and ((evaluation * progression) % budget == 0):
+                    print(
+                        f"Progression : {np.round(evaluation*100/(budget - population), 2)}%. Current cost : {np.round(f_cout(best),6)}"
+                    )
+                if tmp < cost[k]:
+                    # If the new individual is better than the parent,
+                    # we keep it
+                    cost[k] = tmp
+                    omega[k] = X_jump
+        generation = generation+1
+        who = np.argmin(cost)
+        best = omega[who]
+        convergence.append(cost[who])
+        if (evaluation % 50 == 0) and progression:
+            print(f'Progression : {np.round(evaluation*100/(budget - population), 2)}%. Current cost : {np.round(f_cout(best),6)}')
+
+    convergence = convergence[0:generation+1]
+
+    return [best, convergence]
 def variant_ini_QODE(f_cout, budget, X_min, X_max, f1=0.9, f2=0.8, cr=0.5, population=30, progression=False):
     """This is Quasi Opposite Differential Evolution.
 
@@ -414,4 +688,3 @@ def QNDE(f_cout, budget, X_min, X_max, budget_bfgs=None, f1=0.9, f2=0.8, cr=0.5,
     best, last_convergence = bfgs(f_cout, budget_bfgs, first_best, X_min, X_max)
     convergence = np.append(np.asarray(first_convergence), last_convergence)
     return [best, convergence]
-
