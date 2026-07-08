@@ -276,7 +276,7 @@ class Beam:
     """
 
     def __init__(
-        self, wavelength, incidence, polarization, horizontal_waist, unit="nm"
+        self, wavelength, incidence, polarization, horizontal_waist, unit="nm", verbose="False"
     ):
 
         if unit != "nm":
@@ -286,12 +286,13 @@ class Beam:
         self.wavelength = wavelength
         self.incidence = incidence
         tmp = incidence * 180 / np.pi
-        print("Incidence in degrees:", tmp)
         self.polarization = polarization
-        if polarization == 0:
-            print("E//, TE, s polarization")
-        else:
-            print("H//, TM, p polarization")
+        if verbose:
+            print("Incidence in degrees:", tmp)
+            if polarization == 0:
+                print("E//, TE, s polarization")
+            else:
+                print("H//, TM, p polarization")
         self.waist = horizontal_waist
 
 
@@ -321,6 +322,7 @@ class Window:
         horizontal_pixel_size,
         vertical_pixel_size,
         unit="nm",
+        verbose="False,"
     ):
 
         if unit != "nm":
@@ -333,7 +335,8 @@ class Window:
         self.px = float(horizontal_pixel_size)
         self.py = float(vertical_pixel_size)
         self.nx = int(np.floor(width / self.px))
-        print("Pixels horizontally:", self.nx)
+        if verbose:
+            print("Pixels horizontally:", self.nx)
 
 
 class Material:

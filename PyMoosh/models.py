@@ -61,8 +61,8 @@ def Lorentz(wav, f, omega, gamma, eps):
     """
     Lorentz model, with lorentzian resonances (elastically bound electrons)
     eps is eps_inf, the background permittivity
-    f, gamma, omega, sigma are the chi_b parameters (Lorentz resonances)
-    f, gamma, omega, sigma must be lists (np arrays) of the same lengths
+    f, gamma, omega are the chi_b parameters (Lorentz resonances)
+    f, gamma, omega must be lists (np arrays) of the same lengths
     They are given in eV (wav in nm)
     """
     w = 6.62606957e-25 * 299792458 / 1.602176565e-19 / wav
